@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Dopamine Dash – Spel 1</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="game-container">
+    <header>
+      <div class="stat">
+        <span class="label">Level</span>
+        <span id="level-display">1</span>
+      </div>
+      <div class="stat">
+        <span class="label">Score</span>
+        <span id="score-display">0</span>
+      </div>
+      <div class="stat">
+        <span class="label">Combo</span>
+        <span id="combo-display">0</span>
+      </div>
+    </header>
+
+    <div id="progress-bar-container">
+      <div id="progress-bar"></div>
+      <span id="progress-text">0 / 10</span>
+    </div>
+
+    <canvas id="game-canvas"></canvas>
+
+    <div id="overlay" class="hidden">
+      <div id="overlay-content">
+        <h1 id="overlay-title">Dopamine Dash</h1>
+        <p id="overlay-message">Pop de gekleurde orbs!<br>Bouw combos voor extra dopamine.</p>
+        <button id="start-btn">Start Level 1</button>
+        <p id="psychology-hint" class="hint">Gebaseerd op variable rewards, flow &amp; juicy feedback</p>
+      </div>
+    </div>
+
+    <div id="level-complete" class="hidden">
+      <div class="complete-box">
+        <h2>Level gehaald! 🎉</h2>
+        <p id="level-stats"></p>
+        <button id="next-level-btn">Volgend Level</button>
+      </div>
+    </div>
+
+    <div id="game-over" class="hidden">
+      <div class="complete-box">
+        <h2>Game Over</h2>
+        <p id="final-score"></p>
+        <button id="retry-btn">Opnieuw proberen</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
