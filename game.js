@@ -1,438 +1,315 @@
 /**
- * Dopamine Dash – Spel 1
- * Gebouwd met psychologische principes van verslavende spellen:
- * - Variable Ratio Reinforcement (Skinner)
- * - Flow state (uitdaging vs vaardigheid)
- * - Juicy feedback + near-misses
- * - Duidelijke progressie + combo-systemen
- * - Compulsion loop: actie → beloning → nieuw doel
+ * Sequence Pulse – Spel 1
+ * Completely different game: Simon-style memory sequence
+ * Psychological hooks:
+ * - Variable ratio rewards (random bonus multipliers on perfect runs)
+ * - Flow (sequence length & speed ramp gradually)
+ * - Compulsion loop (watch → repeat → reward → longer sequence)
+ * - Juicy feedback (flashes, messages, score pops)
+ * - Near-miss (fail on last note → special message)
+ * - Visible progress + streak
  */
 
-const canvas = document.getElementById('game-canvas');
-const ctx = canvas.getContext('2d');
+const padContainer = document.getElementById('pad-container');
 const levelDisplay = document.getElementById('level-display');
 const scoreDisplay = document.getElementById('score-display');
-const comboDisplay = document.getElementById('combo-display');
+const streakDisplay = document.getElementById('streak-display');
 const progressBar = document.getElementById('progress-bar');
 const progressText = document.getElementById('progress-text');
+const statusMsg = document.getElementById('status-msg');
+const livesDisplay = document.getElementById('lives-display');
+
 const overlay = document.getElementById('overlay');
-const overlayTitle = document.getElementById('overlay-title');
-const overlayMessage = document.getElementById('overlay-message');
-const startBtn = document.getElementById('start-btn');
 const levelComplete = document.getElementById('level-complete');
-const levelStats = document.getElementById('level-stats');
-const nextLevelBtn = document.getElementById('next-level-btn');
 const gameOverScreen = document.getElementById('game-over');
-const finalScore = document.getElementById('final-score');
+const winScreen = document.getElementById('win-screen');
+const levelStats = document.getElementById('level-stats');
+const finalScoreEl = document.getElementById('final-score');
+const winScoreEl = document.getElementById('win-score');
+
+const startBtn = document.getElementById('start-btn');
+const nextBtn = document.getElementById('next-btn');
 const retryBtn = document.getElementById('retry-btn');
+const playAgainBtn = document.getElementById('play-again-btn');
 
-// Level configs – progressive difficulty + variable elements
+// 10 levels – progressive difficulty
+// padCount, seqLength start, roundsToClear, speed (ms between lights), lives
 const LEVELS = [
-  // Level 1: introductie, makkelijk, hoge beloning
-  { target: 12, spawnRate: 900, speedMin: 1.2, speedMax: 2.2, sizeMin: 38, sizeMax: 52, specialChance: 0.12, lives: 5 },
-  // Level 2
-  { target: 16, spawnRate: 800, speedMin: 1.4, speedMax: 2.5, sizeMin: 34, sizeMax: 48, specialChance: 0.15, lives: 5 },
-  // Level 3
-  { target: 20, spawnRate: 720, speedMin: 1.6, speedMax: 2.8, sizeMin: 30, sizeMax: 46, specialChance: 0.18, lives: 4 },
-  // Level 4
-  { target: 24, spawnRate: 650, speedMin: 1.8, speedMax: 3.1, sizeMin: 28, sizeMax: 44, specialChance: 0.20, lives: 4 },
-  // Level 5 – halfweg, iets meer chaos
-  { target: 28, spawnRate: 580, speedMin: 2.0, speedMax: 3.4, sizeMin: 26, sizeMax: 42, specialChance: 0.22, lives: 4 },
-  // Level 6
-  { target: 32, spawnRate: 520, speedMin: 2.2, speedMax: 3.7, sizeMin: 24, sizeMax: 40, specialChance: 0.25, lives: 3 },
-  // Level 7
-  { target: 36, spawnRate: 470, speedMin: 2.4, speedMax: 4.0, sizeMin: 22, sizeMax: 38, specialChance: 0.28, lives: 3 },
-  // Level 8
-  { target: 40, spawnRate: 420, speedMin: 2.6, speedMax: 4.3, sizeMin: 20, sizeMax: 36, specialChance: 0.30, lives: 3 },
-  // Level 9
-  { target: 45, spawnRate: 380, speedMin: 2.8, speedMax: 4.6, sizeMin: 18, sizeMax: 34, specialChance: 0.32, lives: 3 },
-  // Level 10 – finale
-  { target: 50, spawnRate: 340, speedMin: 3.0, speedMax: 5.0, sizeMin: 16, sizeMax: 32, specialChance: 0.35, lives: 3 }
-];
-
-const COLORS = [
-  { fill: '#ff4081', glow: '#ff80ab' }, // roze
-  { fill: '#00e5ff', glow: '#84ffff' }, // cyaan
-  { fill: '#76ff03', glow: '#b2ff59' }, // lime
-  { fill: '#ffea00', glow: '#ffff8d' }, // geel
-  { fill: '#e040fb', glow: '#ea80fc' }, // paars
-  { fill: '#ff6e40', glow: '#ff9e80' }  // oranje
+  { pads: 4, startLen: 3, rounds: 3, speed: 700, lives: 3 },  // 1
+  { pads: 4, startLen: 3, rounds: 3, speed: 620, lives: 3 },  // 2
+  { pads: 4, startLen: 4, rounds: 3, speed: 560, lives: 3 },  // 3
+  { pads: 4, startLen: 4, rounds: 4, speed: 500, lives: 3 },  // 4
+  { pads: 4, startLen: 5, rounds: 4, speed: 450, lives: 3 },  // 5
+  { pads: 6, startLen: 4, rounds: 4, speed: 480, lives: 3 },  // 6 more pads
+  { pads: 6, startLen: 5, rounds: 4, speed: 420, lives: 3 },  // 7
+  { pads: 6, startLen: 6, rounds: 4, speed: 380, lives: 2 },  // 8
+  { pads: 9, startLen: 5, rounds: 4, speed: 400, lives: 2 },  // 9 3x3
+  { pads: 9, startLen: 6, rounds: 5, speed: 340, lives: 2 }   // 10 finale
 ];
 
 let currentLevel = 0;
 let score = 0;
-let combo = 0;
-let maxCombo = 0;
-let popped = 0;
-let lives = 5;
-let orbs = [];
-let particles = [];
-let floatingTexts = [];
-let lastSpawn = 0;
-let gameRunning = false;
-let animationId = null;
-let lastNearMiss = 0;
+let streak = 0;
+let maxStreak = 0;
+let roundsDone = 0;
+let lives = 3;
+let sequence = [];
+let playerStep = 0;
+let isPlayingSequence = false;
+let isPlayerTurn = false;
+let pads = [];
+let currentSeqLen = 3;
 
-function resize() {
-  const container = document.getElementById('game-container');
-  const rect = container.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = rect.width * dpr;
-  canvas.height = (rect.height - 90) * dpr;
-  canvas.style.width = rect.width + 'px';
-  canvas.style.height = (rect.height - 90) + 'px';
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-
-window.addEventListener('resize', resize);
-resize();
-
-class Orb {
-  constructor(cfg) {
-    this.x = Math.random() * (canvas.width / (window.devicePixelRatio || 1) - 60) + 30;
-    this.y = -40;
-    this.radius = cfg.sizeMin + Math.random() * (cfg.sizeMax - cfg.sizeMin);
-    this.speed = cfg.speedMin + Math.random() * (cfg.speedMax - cfg.speedMin);
-    this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
-    this.isSpecial = Math.random() < cfg.specialChance;
-    this.pulse = Math.random() * Math.PI * 2;
-    this.vx = (Math.random() - 0.5) * 0.8; // lichte horizontale drift
-  }
-
-  update(dt) {
-    this.y += this.speed * dt * 60;
-    this.x += this.vx * dt * 60;
-    this.pulse += 0.08;
-  }
-
-  draw() {
-    const r = this.radius + (this.isSpecial ? Math.sin(this.pulse) * 3 : 0);
-    
-    // Glow
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, r + 8, 0, Math.PI * 2);
-    const gradient = ctx.createRadialGradient(this.x, this.y, r * 0.3, this.x, this.y, r + 8);
-    gradient.addColorStop(0, this.color.glow + 'aa');
-    gradient.addColorStop(1, 'transparent');
-    ctx.fillStyle = gradient;
-    ctx.fill();
-
-    // Core
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = this.color.fill;
-    ctx.fill();
-
-    // Highlight
-    ctx.beginPath();
-    ctx.arc(this.x - r * 0.3, this.y - r * 0.3, r * 0.35, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.45)';
-    ctx.fill();
-
-    if (this.isSpecial) {
-      // Special indicator
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, r + 4, 0, Math.PI * 2);
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([4, 4]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-  }
-}
-
-class Particle {
-  constructor(x, y, color) {
-    this.x = x;
-    this.y = y;
-    this.vx = (Math.random() - 0.5) * 8;
-    this.vy = (Math.random() - 0.5) * 8 - 2;
-    this.life = 1;
-    this.color = color;
-    this.size = 3 + Math.random() * 4;
-  }
-  update(dt) {
-    this.x += this.vx * dt * 60;
-    this.y += this.vy * dt * 60;
-    this.vy += 0.15;
-    this.life -= dt * 1.8;
-  }
-  draw() {
-    ctx.globalAlpha = Math.max(0, this.life);
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-    ctx.fillStyle = this.color;
-    ctx.fill();
-    ctx.globalAlpha = 1;
-  }
-}
-
-class FloatingText {
-  constructor(x, y, text, color = '#fff') {
-    this.x = x;
-    this.y = y;
-    this.text = text;
-    this.color = color;
-    this.life = 1;
-    this.vy = -1.8;
-  }
-  update(dt) {
-    this.y += this.vy * dt * 60;
-    this.life -= dt * 1.2;
-  }
-  draw() {
-    ctx.globalAlpha = Math.max(0, this.life);
-    ctx.font = 'bold 18px system-ui';
-    ctx.fillStyle = this.color;
-    ctx.textAlign = 'center';
-    ctx.fillText(this.text, this.x, this.y);
-    ctx.globalAlpha = 1;
-  }
-}
-
-function spawnOrb() {
-  const cfg = LEVELS[currentLevel];
-  orbs.push(new Orb(cfg));
-}
-
-function createExplosion(x, y, color, count = 12) {
-  for (let i = 0; i < count; i++) {
-    particles.push(new Particle(x, y, color));
-  }
+function setMessage(text, color = '#e0d4ff') {
+  statusMsg.textContent = text;
+  statusMsg.style.color = color;
 }
 
 function updateUI() {
   levelDisplay.textContent = currentLevel + 1;
   scoreDisplay.textContent = score;
-  comboDisplay.textContent = combo;
+  streakDisplay.textContent = streak;
   const cfg = LEVELS[currentLevel];
-  const pct = Math.min(100, (popped / cfg.target) * 100);
+  const pct = Math.min(100, (roundsDone / cfg.rounds) * 100);
   progressBar.style.width = pct + '%';
-  progressText.textContent = `${popped} / ${cfg.target}`;
+  progressText.textContent = `${roundsDone} / ${cfg.rounds}`;
+  livesDisplay.textContent = '❤️'.repeat(Math.max(0, lives)) + (lives < cfg.lives ? '🖤'.repeat(cfg.lives - lives) : '');
 }
 
-function showFloating(x, y, text, color) {
-  floatingTexts.push(new FloatingText(x, y, text, color));
+function createPads(count) {
+  padContainer.innerHTML = '';
+  pads = [];
+  padContainer.style.gridTemplateColumns = count <= 4 ? '1fr 1fr' : count <= 6 ? '1fr 1fr 1fr' : '1fr 1fr 1fr';
+
+  for (let i = 0; i < count; i++) {
+    const btn = document.createElement('button');
+    btn.className = `pad pad-${i}`;
+    btn.dataset.index = i;
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      onPadPress(i);
+    });
+    padContainer.appendChild(btn);
+    pads.push(btn);
+  }
 }
 
-function popOrb(orb, index) {
-  const base = Math.floor(orb.radius * 1.5);
-  let points = base;
+function lightPad(index, duration = 320) {
+  return new Promise(resolve => {
+    const pad = pads[index];
+    if (!pad) { resolve(); return; }
+    pad.classList.add('active');
+    setTimeout(() => {
+      pad.classList.remove('active');
+      setTimeout(resolve, 90);
+    }, duration);
+  });
+}
 
-  if (orb.isSpecial) {
-    points = Math.floor(points * (2.5 + Math.random() * 2)); // variable big reward
-    showFloating(orb.x, orb.y - 20, `+${points} ✨`, '#ffea00');
+async function playSequence() {
+  isPlayingSequence = true;
+  isPlayerTurn = false;
+  setPadsEnabled(false);
+  setMessage('Kijk goed...', '#c4b5fd');
+
+  await sleep(450);
+
+  for (let i = 0; i < sequence.length; i++) {
+    await lightPad(sequence[i], LEVELS[currentLevel].speed * 0.55);
+    await sleep(LEVELS[currentLevel].speed * 0.25);
+  }
+
+  await sleep(200);
+  isPlayingSequence = false;
+  isPlayerTurn = true;
+  playerStep = 0;
+  setPadsEnabled(true);
+  setMessage('Jouw beurt! Herhaal de volgorde', '#86efac');
+}
+
+function setPadsEnabled(enabled) {
+  pads.forEach(p => {
+    if (enabled) p.classList.remove('disabled');
+    else p.classList.add('disabled');
+  });
+}
+
+function onPadPress(index) {
+  if (!isPlayerTurn || isPlayingSequence) return;
+
+  // Visual feedback
+  lightPad(index, 180);
+
+  if (index === sequence[playerStep]) {
+    // Correct
+    pads[index].classList.add('correct-flash');
+    setTimeout(() => pads[index].classList.remove('correct-flash'), 350);
+
+    playerStep++;
+
+    if (playerStep >= sequence.length) {
+      // Sequence completed!
+      isPlayerTurn = false;
+      setPadsEnabled(false);
+      handleSuccess();
+    }
   } else {
-    showFloating(orb.x, orb.y - 15, `+${points}`, '#fff');
+    // Wrong
+    pads[index].classList.add('wrong-flash');
+    setTimeout(() => pads[index].classList.remove('wrong-flash'), 400);
+    handleFail(playerStep === sequence.length - 1);
   }
+}
 
-  // Combo system – variable reinforcement
-  combo++;
-  if (combo > maxCombo) maxCombo = combo;
-  if (combo >= 3) {
-    const comboBonus = Math.floor(points * (combo * 0.15));
-    points += comboBonus;
-    showFloating(orb.x, orb.y - 40, `COMBO x${combo}!`, '#00e5ff');
-  }
+function handleSuccess() {
+  const cfg = LEVELS[currentLevel];
+  const base = sequence.length * 25;
+  // Variable reward: 20% chance of big multiplier (classic Skinner)
+  const isJackpot = Math.random() < 0.22;
+  const multiplier = isJackpot ? (2.5 + Math.random() * 2.5) : (1 + streak * 0.12);
+  const points = Math.floor(base * multiplier);
 
   score += points;
-  popped++;
-  createExplosion(orb.x, orb.y, orb.color.fill, orb.isSpecial ? 18 : 10);
-  orbs.splice(index, 1);
+  streak++;
+  if (streak > maxStreak) maxStreak = streak;
+  roundsDone++;
 
-  // Near-miss feel for almost-missed orbs later
+  if (isJackpot) {
+    setMessage(`JACKPOT! +${points} ✨`, '#fde047');
+  } else if (streak >= 3) {
+    setMessage(`Streak x${streak}! +${points}`, '#67e8f9');
+  } else {
+    setMessage(`Perfect! +${points}`, '#86efac');
+  }
+
   updateUI();
 
-  if (popped >= LEVELS[currentLevel].target) {
-    endLevel(true);
+  if (roundsDone >= cfg.rounds) {
+    setTimeout(() => endLevel(true), 900);
+  } else {
+    // Next sequence gets longer (flow + escalating challenge)
+    currentSeqLen++;
+    setTimeout(() => {
+      generateSequence();
+      playSequence();
+    }, 1100);
   }
 }
 
-function checkNearMiss(x, y) {
-  // Psychological near-miss: almost hit something → extra motivation
-  for (const orb of orbs) {
-    const dist = Math.hypot(orb.x - x, orb.y - y);
-    if (dist < orb.radius + 28 && dist > orb.radius) {
-      const now = performance.now();
-      if (now - lastNearMiss > 600) {
-        lastNearMiss = now;
-        showFloating(x, y - 10, 'Bijna!', '#ff80ab');
-        // Small visual pulse on the near-missed orb
-        createExplosion(orb.x, orb.y, orb.color.glow, 4);
-      }
-      break;
-    }
+function handleFail(wasNearMiss) {
+  isPlayerTurn = false;
+  setPadsEnabled(false);
+  lives--;
+  streak = 0;
+  updateUI();
+
+  if (wasNearMiss) {
+    setMessage('ZO DICHTBIJ! Bijna de hele reeks... 😬', '#fb923c');
+  } else {
+    setMessage('Fout! Probeer opnieuw', '#f87171');
+  }
+
+  if (lives <= 0) {
+    setTimeout(() => endLevel(false), 1000);
+  } else {
+    // Retry same length (gentle recovery)
+    setTimeout(() => {
+      generateSequence();
+      playSequence();
+    }, 1300);
   }
 }
 
-function handleInput(clientX, clientY) {
-  if (!gameRunning) return;
-  const rect = canvas.getBoundingClientRect();
-  const x = clientX - rect.left;
-  const y = clientY - rect.top;
-
-  let hit = false;
-  for (let i = orbs.length - 1; i >= 0; i--) {
-    const orb = orbs[i];
-    const dist = Math.hypot(orb.x - x, orb.y - y);
-    if (dist < orb.radius + 6) {
-      popOrb(orb, i);
-      hit = true;
-      break;
-    }
-  }
-  if (!hit) {
-    checkNearMiss(x, y);
-    // Miss slightly reduces combo
-    if (combo > 0) combo = Math.max(0, combo - 1);
+function generateSequence() {
+  const cfg = LEVELS[currentLevel];
+  sequence = [];
+  for (let i = 0; i < currentSeqLen; i++) {
+    sequence.push(Math.floor(Math.random() * cfg.pads));
   }
 }
-
-canvas.addEventListener('pointerdown', (e) => {
-  e.preventDefault();
-  handleInput(e.clientX, e.clientY);
-});
 
 function endLevel(success) {
-  gameRunning = false;
-  cancelAnimationFrame(animationId);
+  isPlayerTurn = false;
+  isPlayingSequence = false;
 
   if (success) {
-    const bonus = (currentLevel + 1) * 50 + maxCombo * 10;
+    const bonus = (currentLevel + 1) * 80 + maxStreak * 15;
     score += bonus;
     levelStats.innerHTML = `
       Score: <strong>${score}</strong><br>
-      Max combo: <strong>${maxCombo}</strong><br>
+      Max streak: <strong>${maxStreak}</strong><br>
       Level bonus: +${bonus}
     `;
     levelComplete.classList.remove('hidden');
   } else {
-    finalScore.textContent = `Eindscore: ${score}`;
+    finalScoreEl.textContent = `Eindscore: ${score}`;
     gameOverScreen.classList.remove('hidden');
   }
 }
 
 function startLevel() {
   const cfg = LEVELS[currentLevel];
-  orbs = [];
-  particles = [];
-  floatingTexts = [];
-  popped = 0;
-  combo = 0;
-  maxCombo = 0;
+  createPads(cfg.pads);
+  roundsDone = 0;
   lives = cfg.lives;
-  lastSpawn = performance.now();
-  gameRunning = true;
+  streak = 0;
+  maxStreak = 0;
+  currentSeqLen = cfg.startLen;
+  sequence = [];
+  playerStep = 0;
+  isPlayingSequence = false;
+  isPlayerTurn = false;
+
   overlay.classList.add('hidden');
   levelComplete.classList.add('hidden');
   gameOverScreen.classList.add('hidden');
+  winScreen.classList.add('hidden');
+
   updateUI();
-  loop(performance.now());
+  setMessage('Maak je klaar...', '#c4b5fd');
+
+  setTimeout(() => {
+    generateSequence();
+    playSequence();
+  }, 700);
 }
 
 function nextLevel() {
   currentLevel++;
   if (currentLevel >= LEVELS.length) {
-    // Game compleet!
-    overlayTitle.textContent = 'Je hebt alles gehaald! 🏆';
-    overlayMessage.innerHTML = `Fantastische score: <strong>${score}</strong><br>Je hebt alle 10 levels gehaald.`;
-    startBtn.textContent = 'Opnieuw spelen';
-    startBtn.onclick = () => {
-      currentLevel = 0;
-      score = 0;
-      startLevel();
-    };
-    overlay.classList.remove('hidden');
+    winScoreEl.innerHTML = `Fantastische score: <strong>${score}</strong><br>Je hebt alle 10 levels gehaald!`;
+    winScreen.classList.remove('hidden');
+    levelComplete.classList.add('hidden');
     return;
   }
   startLevel();
 }
 
-let lastTime = performance.now();
-function loop(now) {
-  if (!gameRunning) return;
-  const dt = Math.min(0.05, (now - lastTime) / 1000);
-  lastTime = now;
-
-  const w = canvas.width / (window.devicePixelRatio || 1);
-  const h = canvas.height / (window.devicePixelRatio || 1);
-
-  // Clear
-  ctx.clearRect(0, 0, w, h);
-
-  // Soft background particles for atmosphere
-  ctx.fillStyle = 'rgba(0, 200, 255, 0.03)';
-  for (let i = 0; i < 8; i++) {
-    const px = (now / 30 + i * 80) % (w + 40) - 20;
-    const py = (i * 97 + now / 50) % h;
-    ctx.beginPath();
-    ctx.arc(px, py, 2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Spawn
-  const cfg = LEVELS[currentLevel];
-  if (now - lastSpawn > cfg.spawnRate) {
-    spawnOrb();
-    lastSpawn = now;
-  }
-
-  // Update & draw orbs
-  for (let i = orbs.length - 1; i >= 0; i--) {
-    const orb = orbs[i];
-    orb.update(dt);
-    orb.draw();
-
-    // Missed – fell off screen
-    if (orb.y - orb.radius > h) {
-      orbs.splice(i, 1);
-      lives--;
-      combo = 0;
-      showFloating(orb.x, h - 30, 'Miss!', '#ff5252');
-      if (lives <= 0) {
-        endLevel(false);
-        return;
-      }
-    }
-  }
-
-  // Particles
-  for (let i = particles.length - 1; i >= 0; i--) {
-    particles[i].update(dt);
-    particles[i].draw();
-    if (particles[i].life <= 0) particles.splice(i, 1);
-  }
-
-  // Floating texts
-  for (let i = floatingTexts.length - 1; i >= 0; i--) {
-    floatingTexts[i].update(dt);
-    floatingTexts[i].draw();
-    if (floatingTexts[i].life <= 0) floatingTexts.splice(i, 1);
-  }
-
-  // Lives indicator
-  ctx.font = '14px system-ui';
-  ctx.fillStyle = 'rgba(255,255,255,0.7)';
-  ctx.textAlign = 'left';
-  ctx.fillText('❤️'.repeat(Math.max(0, lives)), 12, 22);
-
-  animationId = requestAnimationFrame(loop);
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
 }
 
-// Event listeners
+// Buttons
 startBtn.addEventListener('click', () => {
   currentLevel = 0;
   score = 0;
   startLevel();
 });
 
-nextLevelBtn.addEventListener('click', nextLevel);
+nextBtn.addEventListener('click', nextLevel);
+
 retryBtn.addEventListener('click', () => {
   currentLevel = 0;
   score = 0;
   startLevel();
 });
 
-// Initial overlay
-overlay.classList.remove('hidden');
+playAgainBtn.addEventListener('click', () => {
+  currentLevel = 0;
+  score = 0;
+  winScreen.classList.add('hidden');
+  startLevel();
+});
+
+// Initial state
+updateUI();
