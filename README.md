@@ -1,53 +1,43 @@
-# Dopamine Dash – Spel 1
+# Sequence Pulse – Spel 1
 
-Een leuk, verslavend casual spel met **10 levels**, gebouwd op basis van psychologische principes uit onderzoek naar verslavende spellen.
+Een **compleet ander** verslavend spel dan de vorige versie.
+
+Dit is een **Simon-achtig memory / sequence spel** met 10 levels.
 
 ## Speel het
 
-Open `index.html` in een moderne browser (Chrome, Firefox, Safari, Edge).  
-Werkt ook op mobiel (touch).
+Open `index.html` in een browser (werkt ook op telefoon).
 
 ## Hoe te spelen
 
-- Klik / tik op de gekleurde **orbs** om ze te poppen.
-- Bouw **combo’s** voor extra punten.
-- Speciale orbs (met stippellijn) geven **onvoorspelbare hoge beloningen**.
-- Haal het target van het level voordat je levens opraken.
-- Levels worden geleidelijk moeilijker (sneller, kleiner, meer chaos).
+1. Het spel laat een reeks gekleurde pads oplichten.
+2. Jij moet dezelfde volgorde terugtikken.
+3. Elke juiste reeks maakt de volgende reeks **langer**.
+4. Haal het aantal rondes van het level om door te gaan.
+5. Speciale **Jackpot**-beloningen verschijnen onvoorspelbaar.
 
-## Psychologische principes die erin zitten
+## 10 Levels
 
-Gebaseerd op artikelen over verslavende game design (Skinner, flow-theorie, Candy Crush-achtige loops, etc.):
+| Level | Pads | Start lengte | Rondes | Snelheid |
+|-------|------|--------------|--------|----------|
+| 1–5   | 4    | 3 → 5        | 3–4    | Langzaam → sneller |
+| 6–8   | 6    | 4 → 6        | 4      | Sneller  |
+| 9–10  | 9    | 5 → 6        | 4–5    | Snelste  |
 
-1. **Variable Ratio Reinforcement (Skinner-box)**  
-   Speciale orbs en combo-multipliers geven onvoorspelbare beloningen. Het brein blijft dopamine produceren door de anticipatie.
+## Psychologische principes (zelfde onderzoek, ander spel)
 
-2. **Flow State**  
-   Moeilijkheid stijgt geleidelijk zodat de uitdaging ongeveer matcht met je vaardigheid. Duidelijke doelen + directe feedback.
-
-3. **Compulsion / Ludic Loop**  
-   Actie (tik) → beloning (punten + animatie) → nieuw doel (volgende orb / level).
-
-4. **Juicy Feedback**  
-   Explosies, floating scores, glow-effecten en combo-teksten maken elke pop bevredigend.
-
-5. **Near-miss Effect**  
-   Als je net mis klikt, krijg je “Bijna!” feedback. Dit motiveert om door te gaan (bekend uit gokonderzoek).
-
-6. **Visible Progress**  
-   Progress bar + level-counter + score geven een constant gevoel van vooruitgang (sunk-cost + achievement).
-
-7. **Short Sessions + Escalating Challenge**  
-   Elk level is snel te starten en te voltooien, met toenemende complexiteit tot level 10.
+- **Variable Ratio Reinforcement**: 22% kans op Jackpot-multiplier bij een perfecte reeks
+- **Flow**: reeksen starten kort en groeien geleidelijk mee met je vaardigheid
+- **Compulsion loop**: kijken → herhalen → beloning → langere reeks
+- **Near-miss**: als je de laatste noot mist krijg je “ZO DICHTBIJ!”
+- **Streak & progress**: zichtbare streak + progress bar houden je gemotiveerd
+- **Juicy feedback**: flitsen, animaties, duidelijke berichten
 
 ## Bestanden
 
-- `index.html` – structuur
-- `style.css` – dark, neon UI
-- `game.js` – complete game logic + 10 levels
+- `index.html`
+- `style.css`
+- `game.js`
+- `README.md`
 
-## Credits
-
-Gemaakt als experiment naar aanleiding van psychologische artikelen over verslavende spellen (variable rewards, flow, near-misses, progress mechanics).
-
-Veel speelplezier! 🎮
+Veel speelplezier! 🧠✨
